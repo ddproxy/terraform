@@ -13,7 +13,8 @@ resource "aws_s3_bucket" "bucket" {
 # Create an AWS CodeBuild project resource named `aws_codebuild_project.this`.
 resource "aws_codebuild_project" "this" {
   name          = "${var.codebuild_name}-project" # Set the project name based on the input variable `codebuild_name`.
-  description   = "${var.codebuild_name}_codebuild_project" # Set the project description based on the input variable `codebuild_name`.
+  # Set the project description based on the input variable `codebuild_name`.
+  description   = "${var.codebuild_name}_codebuild_project"
   build_timeout = var.build_timeout # Set the build timeout based on the input variable `build_timeout`.
   service_role  = var.service_role_arn # Set the service role based on the input variable `service_role_arn`.
 
@@ -39,8 +40,10 @@ resource "aws_codebuild_project" "this" {
 
 # Create an AWS IAM role resource named `aws_iam_role.codebuild_role`.
 resource "aws_iam_role" "codebuild_role" {
-  name               = "${var.codebuild_name}-codebuild-role" # Set the role name based on the input variable `codebuild_name`.
-  assume_role_policy = data.aws_iam_policy_document.assume_role_policy.json # Set the assume role policy based on the policy document `data.aws_iam_policy_document.assume_role_policy`.
+  # Set the role name based on the input variable `codebuild_name`.
+  name               = "${var.codebuild_name}-codebuild-role"
+  # Set the assume role policy based on the policy document `data.aws_iam_policy_document.assume_role_policy`.
+  assume_role_policy = data.aws_iam_policy_document.assume_role_policy.json
 }
 
 # Define a policy document in `data.aws_iam_policy_document.assume_role_policy` that specifies the permissions required by CodeBuild to assume the IAM role created earlier.
