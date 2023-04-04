@@ -9,7 +9,7 @@ on:
 
 jobs:
   tflint:
-    name: Terraform Lint
+    name: ${{ matrix.directory }} Terraform Lint
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -48,7 +48,7 @@ jobs:
         run: tflint -f compact
 
   terraform:
-    name: Terraform Validation
+    name: ${{ matrix.directory }} Terraform Validation
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
