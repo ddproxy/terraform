@@ -10,6 +10,21 @@ resource "aws_s3_bucket" "bucket" {
   bucket = "${var.codebuild_name}-codebuild-bucket"
 }
 
+resource "aws_s3_bucket_acl" "bucket" {
+  count  = var.bucket_arn != "" ? 0 : 1
+  bucket = aws_s3_bucket.bucket.id
+  acl    = "private"
+}
+
+resource "aws_s3_bucket_public_access_block" "bucket" {
+  count                   = var.bucket_arn != "" ? 0 : 1
+  bucket                  = aws_s3_bucket.bucket.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
 resource "aws_codebuild_project" "this" {
   name          = "${var.codebuild_name}-project"
   description   = "${var.codebuild_name}_codebuild_project"
@@ -40,7 +55,7 @@ resource "aws_iam_role" "codebuild_role" {
 }
 
 resource "aws_iam_role_policy" "codebuild_policy" {
-  count              = var.service_role_arn != "" ? 0 : 1
+  count  = var.service_role_arn != "" ? 0 : 1
   role   = aws_iam_role.codebuild_role[0].name
   policy = data.aws_iam_policy_document.codebuild_policy_document.json
 }
