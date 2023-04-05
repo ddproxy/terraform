@@ -9,29 +9,24 @@ on:
 
 jobs:
   tflint:
+    permissions:
+      contents: read
+      actions: read
     name: ${{ matrix.directory }} Terraform Lint
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         directory: [ "./modules", "./examples" ]
-        os: [ ubuntu-latest, macos-latest, windows-latest ]
+        os: [ ubuntu-latest ]
 
     defaults:
       run:
         working-directory: ${{ matrix.directory }}
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 1
-
-      - uses: actions/cache@v3
-        name: Cache plugin dir
-        with:
-          path: ~/.tflint.d/plugins
-          key: ${{ matrix.os }}-tflint-${{ hashFiles('.tflint.hcl') }}
+      - name: Setup
+        uses: './.github/actions/ci-setup'
 
       - uses: terraform-linters/setup-tflint@v3
         name: Setup TFLint
@@ -41,11 +36,75 @@ jobs:
       - name: Init TFLint
         run: tflint --init
         env:
-          # https://github.com/terraform-linters/tflint/blob/master/docs/user-guide/plugins.md#avoiding-rate-limiting
           GITHUB_TOKEN: ${{ github.token }}
 
       - name: Run TFLint
         run: tflint -f compact
+
+  checkov:
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        directory: [ "./examples" ]
+        os: [ ubuntu-latest ]
+    steps:
+      - name: Setup
+        uses: './.github/actions/ci-setup'
+
+      - name: Checkov GitHub Action
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          output_format: cli,sarif
+          output_file_path: console,results.sarif
+
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v2
+        if: success() || failure()
+        with:
+
+  terraform-compliance:
+    name: ${{ matrix.directory }} Terraform Compliance
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        directory: [ "./examples" ]
+        os: [ ubuntu-latest ]
+    steps:
+      - name: Setup
+        uses: './.github/actions/ci-setup'
+
+      - uses: terraform-compliance/github_action@main
+      - name: terraform plan
+        id: plan
+        run: |
+          terraform plan -out=plan.out && terraform show -json plan.out > plan.out.json
+
+      - name: terraform-compliance
+        id: terraform-compliance from remote repo
+        run: |
+          terraform-compliance -p $GITHUB_WORKSPACE/plan.out.json -f git:ssh://git@github.com/terraform-compliance/user-friendly-features.git
+
+
+  tfsec:
+    name: ${{ matrix.directory }} TSec
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        directory: [ "./examples" ]
+        os: [ ubuntu-latest ]
+    steps:
+      - name: Setup
+        uses: './.github/actions/ci-setup'
+
+      - name: tfsec
+        uses: aquasecurity/tfsec-action@v1.0.0
 
   terraform:
     name: ${{ matrix.directory }} Terraform Validation
@@ -54,34 +113,18 @@ jobs:
       fail-fast: false
       matrix:
         directory: [ "./examples" ]
-        os: [ ubuntu-latest, macos-latest, windows-latest ]
-
+        os: [ ubuntu-latest ]
     defaults:
       run:
         working-directory: ${{ matrix.directory }}
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 1
-
-      - uses: actions/cache@v3
-        name: Cache plugin dir
-        with:
-          path: ~/.tflint.d/plugins
-          key: ${{ matrix.os }}-tflint-${{ hashFiles('.tflint.hcl') }}
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v1.2.1
+      - name: Setup
+        uses: './.github/actions/ci-setup'
 
       - name: Run `terraform fmt`
         id: fmt
         run: terraform fmt -diff -check -no-color -recursive
-
-      - name: Run `terraform init`
-        id: init
-        run: terraform init
 
       - name: Run `terraform validate`
         id: validate
