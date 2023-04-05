@@ -1,28 +1,13 @@
 # If `var.bucket_arn` is not provided, it uses the `arn` of an S3 bucket created later in the configuration.
 locals {
-  bucket_arn       = var.bucket_arn != "" ? var.bucket_arn : aws_s3_bucket.bucket[0].arn
+  bucket_arn       = var.bucket_arn != "" ? var.bucket_arn : module.bucket[0].bucket_arn
   service_role_arn = var.service_role_arn != "" ? var.service_role_arn : aws_iam_role.codebuild_role[0].arn
 }
 
-# Create an AWS S3 bucket resource named `aws_s3_bucket.bucket` if `var.bucket_arn` is not provided.
-resource "aws_s3_bucket" "bucket" {
+module "bucket" {
   count  = var.bucket_arn != "" ? 0 : 1
-  bucket = "${var.codebuild_name}-codebuild-bucket"
-}
-
-resource "aws_s3_bucket_acl" "bucket" {
-  count  = var.bucket_arn != "" ? 0 : 1
-  bucket = aws_s3_bucket.bucket.id
-  acl    = "private"
-}
-
-resource "aws_s3_bucket_public_access_block" "bucket" {
-  count                   = var.bucket_arn != "" ? 0 : 1
-  bucket                  = aws_s3_bucket.bucket.id
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
+  source = "../s3-bucket"
+  name   = "${var.codebuild_name}-codebuild-bucket"
 }
 
 resource "aws_codebuild_project" "this" {
