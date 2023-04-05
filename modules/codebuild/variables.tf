@@ -1,5 +1,9 @@
 variable "codebuild_name" {
   type = string
+  validation {
+    condition     = length(var.codebuild_name) > 0
+    error_message = "Codebuild name must contain one or more characters"
+  }
 }
 
 variable "bucket_arn" {
@@ -41,10 +45,10 @@ variable "compute_type" {
 variable "codebuild_image" {
   type        = string
   description = "The CodeBuild image for the project"
-  default     = "aws/codebuild/amazonlinux2-x86_64-standard:3.0"
+  default     = "aws/codebuild/amazonlinux2-x86_64-standard:4.0"
 
   validation {
-    condition     = can(regex("[a-z]+/[a-z]+:[0-9].[0-9]", var.codebuild_image))
+    condition     = can(regex("[-_/a-z0-9]+:[0-9].[0-9]", var.codebuild_image))
     error_message = "CodeBuild image must match the pattern <registry>/<image_name>:<version>"
   }
 }
@@ -52,16 +56,16 @@ variable "codebuild_image" {
 variable "codebuild_type" {
   type        = string
   description = "The CodeBuild compute type for the project"
-  default     = "BUILD_GENERAL1_SMALL"
+  default     = "LINUX_CONTAINER"
 
   validation {
-    condition     = can(regex("BUILD_GENERAL\\d+_\\w+", var.codebuild_type))
-    error_message = "CodeBuild compute type must match the pattern 'BUILD_GENERAL<Number>_<Size>'"
-  }
-
-  validation {
-    condition     = var.codebuild_type != "BUILD_GENERAL1_SMALL" || var.codebuild_type != "BUILD_GENERAL1_MEDIUM" || var.codebuild_type != "BUILD_GENERAL1_LARGE"
-    error_message = "CodeBuild compute type must be one of 'BUILD_GENERAL1_SMALL', 'BUILD_GENERAL1_MEDIUM', or 'BUILD_GENERAL1_LARGE'"
+    condition = contains([
+      "LINUX_CONTAINER",
+      "LINUX_GPU_CONTAINER",
+      "WINDOWS_SERVER_2019_CONTAINER",
+      "ARM_CONTAINER"
+    ], var.codebuild_type)
+    error_message = "CodeBuild compute type must be one of 'LINUX_CONTAINER', 'LINUX_GPU_CONTAINER', 'WINDOWS_SERVER_2019_CONTAINER' or 'ARM_CONTAINER'"
   }
 }
 
@@ -82,7 +86,7 @@ variable "service_role_arn" {
   default     = ""
 
   validation {
-    condition     = can(regex("arn:aws:iam::\\d{12}:role/\\S+", var.service_role_arn))
+    condition     = can(regex("arn:aws:iam::\\d{12}:role/\\S+", var.service_role_arn)) || var.service_role_arn == ""
     error_message = "Role ARN must be in the format 'arn:aws:iam::<account_id>:role/<role_name>'"
   }
 }

@@ -4,7 +4,6 @@ locals {
   name = var.name != "" ? "tf-${var.name}" : "tf"
 }
 
-
 // Create an ECR repository resource with the name "${local.name}-ecr" and image tag mutability set to `var.mutability`.
 // Also enable image scanning when images are pushed to the repository.
 resource "aws_ecr_repository" "this" {

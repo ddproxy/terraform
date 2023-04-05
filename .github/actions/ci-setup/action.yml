@@ -1,0 +1,13 @@
+name: CI setup
+description: 'Sets up the environment for jobs during CI workflow'
+
+runs:
+  using: composite
+  steps:
+    - name: Cache plugin dir
+      uses: actions/cache@v3
+      with:
+        path: ~/.tflint.d/plugins
+        key: ${{ matrix.os }}-tflint-${{ hashFiles('.tflint.hcl') }}
+
+    - uses: hashicorp/setup-terraform@v1

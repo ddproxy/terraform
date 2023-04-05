@@ -1,89 +1,182 @@
 ---
-name: "Validate terraform"
+name: "Terraform"
 
 on:
   push:
     branches:
       - main
-    pull_request:
-
+  pull_request:
+  workflow_dispatch:
 jobs:
-  tflint:
-    name: ${{ matrix.directory }} Terraform Lint
-    runs-on: ${{ matrix.os }}
+  examples-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v3
+      - id: set-matrix
+        run: echo "matrix=$(ls examples/ | jq -R -s -c '[(split("\n") | del(.[] | select( . == "")))[] | "./examples/" + .]')" >> $GITHUB_OUTPUT
+
+  terraform-compliance:
+    name: Compliance
+    needs: examples-matrix
     strategy:
       fail-fast: false
       matrix:
-        directory: [ "./modules", "./examples" ]
-        os: [ ubuntu-latest, macos-latest, windows-latest ]
-
+        directory: ${{ fromJSON(needs.examples-matrix.outputs.matrix) }}
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ${{ matrix.directory }}
-
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 1
-
-      - uses: actions/cache@v3
-        name: Cache plugin dir
-        with:
-          path: ~/.tflint.d/plugins
-          key: ${{ matrix.os }}-tflint-${{ hashFiles('.tflint.hcl') }}
-
-      - uses: terraform-linters/setup-tflint@v3
-        name: Setup TFLint
-        with:
-          tflint_version: v0.44.1
-
-      - name: Init TFLint
-        run: tflint --init
-        env:
-          # https://github.com/terraform-linters/tflint/blob/master/docs/user-guide/plugins.md#avoiding-rate-limiting
-          GITHUB_TOKEN: ${{ github.token }}
-
-      - name: Run TFLint
-        run: tflint -f compact
-
-  terraform:
-    name: ${{ matrix.directory }} Terraform Validation
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        directory: [ "./examples" ]
-        os: [ ubuntu-latest, macos-latest, windows-latest ]
-
-    defaults:
-      run:
-        working-directory: ${{ matrix.directory }}
-
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 1
-
-      - uses: actions/cache@v3
-        name: Cache plugin dir
-        with:
-          path: ~/.tflint.d/plugins
-          key: ${{ matrix.os }}-tflint-${{ hashFiles('.tflint.hcl') }}
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v1.2.1
-
-      - name: Run `terraform fmt`
-        id: fmt
-        run: terraform fmt -diff -check -no-color -recursive
+      - name: Setup
+        uses: './.github/actions/ci-setup'
 
       - name: Run `terraform init`
         id: init
         run: terraform init
+        shell: bash
 
-      - name: Run `terraform validate`
-        id: validate
-        if: github.event_name == 'pull_request'
-        run: terraform validate -no-color
+      - uses: terraform-compliance/github_action@main
+      - name: terraform plan
+        id: plan
+        run: |
+          terraform plan -out=plan.out && terraform show -json plan.out > plan.out.json
+
+      - name: terraform-compliance
+        id: terraform-compliance-friendly-features
+        run: |
+          terraform-compliance -p plan.out.json -f git:ssh://git@github.com/terraform-compliance/user-friendly-features.git
+
+  tflint:
+    name: TFLint
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+
+      - uses: actions/cache@v3
+        name: Cache plugin dir
+        with:
+          path: ~/.tflint.d/plugins
+          key: tflint-${{ hashFiles('.tflint.hcl') }}
+
+      - uses: terraform-linters/setup-tflint@v3
+        name: Setup TFLint
+        with:
+          tflint_version: latest
+
+      - name: Init TFLint
+        run: tflint --init
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Run TFLint
+        run: tflint -f sarif --recursive > tflint.sarif
+
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v2
+        if: success() || failure()
+        with:
+          sarif_file: tflint.sarif
+
+  checkov:
+    name: CheckOV
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+      - name: Setup
+        uses: './.github/actions/ci-setup'
+
+      - name: Checkov GitHub Action
+        uses: bridgecrewio/checkov-action@master
+        with:
+          output_format: cli,sarif
+          output_file_path: console,results.sarif
+
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v2
+        if: success() || failure()
+        with:
+          sarif_file: results.sarif
+
+  tfsec:
+    name: TFSec
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+
+      - name: tfsec
+        uses: aquasecurity/tfsec-sarif-action@v0.1.4
+        with:
+          sarif_file: tfsec.sarif
+
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          # Path to SARIF file relative to the root of the repository
+          sarif_file: tfsec.sarif
+
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    needs: examples-matrix
+    strategy:
+      fail-fast: false
+      matrix:
+        directory: ${{ fromJSON(needs.examples-matrix.outputs.matrix) }}
+    defaults:
+      run:
+        working-directory: ${{ matrix.directory }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: terraform validate
+        uses: dflook/terraform-validate@v1
+
+  fmt-check:
+    name: Check formatting
+    runs-on: ubuntu-latest
+    needs: examples-matrix
+    strategy:
+      fail-fast: false
+      matrix:
+        directory: ${{ fromJSON(needs.examples-matrix.outputs.matrix) }}
+    defaults:
+      run:
+        working-directory: ${{ matrix.directory }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: terraform fmt
+        uses: dflook/terraform-fmt-check@v1
