@@ -5,8 +5,8 @@ on:
   push:
     branches:
       - main
-    pull_request:
-
+  pull_request:
+  workflow_dispatch:
 jobs:
   tflint:
     permissions:
@@ -66,6 +66,7 @@ jobs:
         uses: github/codeql-action/upload-sarif@v2
         if: success() || failure()
         with:
+          sarif_file: results.sarif
 
   terraform-compliance:
     name: ${{ matrix.directory }} Terraform Compliance
@@ -86,7 +87,7 @@ jobs:
           terraform plan -out=plan.out && terraform show -json plan.out > plan.out.json
 
       - name: terraform-compliance
-        id: terraform-compliance from remote repo
+        id: terraform-compliance-friendly-features
         run: |
           terraform-compliance -p $GITHUB_WORKSPACE/plan.out.json -f git:ssh://git@github.com/terraform-compliance/user-friendly-features.git
 
