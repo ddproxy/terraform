@@ -15,16 +15,16 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - id: set-matrix
-        run: echo "::set-output name=matrix::$(ls examples/ | jq -R -s -c 'split("\n")[:1]')"
+        run: echo "::set-output name=matrix::$(ls examples/ | jq -R -s -c 'split("\n")[:1][] | \"examples/\" + .')"
 
   terraform-compliance:
     name: Terraform Compliance
     needs: examples-matrix
-    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         directory: ${{ fromJson(needs.examples-matrix.outputs.matrix) }}
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: examples/${{ matrix.directory }}
@@ -52,29 +52,23 @@ jobs:
         run: |
           terraform-compliance -p plan.out.json -f git:ssh://git@github.com/terraform-compliance/user-friendly-features.git
 
+
   tflint:
-    permissions:
-      contents: read
-      actions: read
-    name: ${{ matrix.directory }} Terraform Lint
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix:
-        directory: [ "./modules", "./examples" ]
-        os: [ ubuntu-latest ]
-
-    defaults:
-      run:
-        working-directory: ${{ matrix.directory }}
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
           fetch-depth: 1
-      - name: Setup
-        uses: './.github/actions/ci-setup'
+
+      - uses: actions/cache@v3
+        name: Cache plugin dir
+        with:
+          path: ~/.tflint.d/plugins
+          key: ${{ matrix.os }}-tflint-${{ hashFiles('.tflint.hcl') }}
 
       - uses: terraform-linters/setup-tflint@v3
         name: Setup TFLint
@@ -87,7 +81,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
 
       - name: Run TFLint
-        run: tflint -f compact
+        run: tflint -f sarif --recursive
 
   checkov:
     permissions:
@@ -121,53 +115,72 @@ jobs:
 
   tfsec:
     name: TFSec
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
     strategy:
       fail-fast: false
-      matrix:
-        os: [ ubuntu-latest ]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
           fetch-depth: 1
-      - name: Setup
-        uses: './.github/actions/ci-setup'
 
       - name: tfsec
-        uses: aquasecurity/tfsec-action@v1.0.0
+        uses: aquasecurity/tfsec-sarif-action@v0.1.0
+        with:
+          sarif_file: tfsec.sarif
+
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v1
+        with:
+          # Path to SARIF file relative to the root of the repository
+          sarif_file: tfsec.sarif
 
   validate:
-    runs-on: ubuntu-latest
     name: Validate terraform configuration
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        directory: ${{ fromJson(needs.examples-matrix.outputs.matrix) }}
+    defaults:
+      run:
+        working-directory: examples/${{ matrix.directory }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
       - name: terraform validate
         uses: dflook/terraform-validate@v1
-        with:
-          path: my-terraform-config
 
   fmt-check:
-    runs-on: ubuntu-latest
     name: Check formatting of terraform files
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        directory: ${{ fromJson(needs.examples-matrix.outputs.matrix) }}
+    defaults:
+      run:
+        working-directory: examples/${{ matrix.directory }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
       - name: terraform fmt
         uses: dflook/terraform-fmt-check@v1
-        with:
-          path: my-terraform-config
+
   terraform:
     name: ${{ matrix.directory }} Terraform Validation
-    runs-on: ${{ matrix.os }}
+    needs: examples-matrix
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        directory: [ "./examples" ]
-        os: [ ubuntu-latest ]
+        directory: ${{ fromJson(needs.examples-matrix.outputs.matrix) }}
     defaults:
       run:
         working-directory: examples/${{ matrix.directory }}

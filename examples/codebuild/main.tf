@@ -1,5 +1,14 @@
+provider "aws" {
+  region                      = "us-east-1"
+  skip_credentials_validation = true
+  skip_requesting_account_id  = true
+  skip_metadata_api_check     = true
+  access_key                  = "mock_access_key"
+  secret_key                  = "mock_secret_key"
+}
+
 module "codebuild" {
-  source         = "../../modules/codebuild"
-  codebuild_name = ""
-  build_timeout  = 0
+  source           = "../../modules/codebuild"
+  codebuild_name   = "example"
+  service_role_arn = "arn:aws:iam::123123123123:role/codebuild-service-role"
 }
