@@ -23,7 +23,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        directory: ${{ fromJson(needs.examples-matrix.outputs.matrix) }}
+        directory: ${{ fromJSON(needs.examples-matrix.outputs.matrix) }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -153,7 +153,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        directory: ${{ fromJson(needs.examples-matrix.outputs.matrix) }}
+        directory: ${{ fromJSON(needs.examples-matrix.outputs.matrix) }}
     defaults:
       run:
         working-directory: ${{ matrix.directory }}
@@ -171,7 +171,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        directory: ${{ fromJson(needs.examples-matrix.outputs.matrix) }}
+        directory: ${{ fromJSON(needs.examples-matrix.outputs.matrix) }}
     defaults:
       run:
         working-directory: ${{ matrix.directory }}
