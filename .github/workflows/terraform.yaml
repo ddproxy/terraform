@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - id: set-matrix
-        run: echo "::set-output name=matrix::$(ls examples/ | jq -R -s -c 'split("\n")[:1][] | \"examples/\" + .')"
+        run: echo "matrix=$(ls examples/ | jq -R -s -c 'split("\n")[:1][] | "examples/" + .')" >> $GITHUB_OUTPUT
 
   terraform-compliance:
     name: Terraform Compliance
@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: examples/${{ matrix.directory }}
+        working-directory: ${{ matrix.directory }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -148,7 +148,7 @@ jobs:
         directory: ${{ fromJson(needs.examples-matrix.outputs.matrix) }}
     defaults:
       run:
-        working-directory: examples/${{ matrix.directory }}
+        working-directory: ${{ matrix.directory }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -165,7 +165,7 @@ jobs:
         directory: ${{ fromJson(needs.examples-matrix.outputs.matrix) }}
     defaults:
       run:
-        working-directory: examples/${{ matrix.directory }}
+        working-directory: ${{ matrix.directory }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -183,7 +183,7 @@ jobs:
         directory: ${{ fromJson(needs.examples-matrix.outputs.matrix) }}
     defaults:
       run:
-        working-directory: examples/${{ matrix.directory }}
+        working-directory: ${{ matrix.directory }}
 
     steps:
       - name: Checkout Repository
