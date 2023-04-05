@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - id: set-matrix
-        run: echo "matrix=$(ls examples/ | jq -R -s -c 'split("\n")[:1][] | "examples/" + .')" >> $GITHUB_OUTPUT
+        run: echo "matrix=$(ls examples/ | jq -R -s -c 'split("\n")[:1][] | "./examples/" + .')" >> $GITHUB_OUTPUT
 
   terraform-compliance:
     name: Compliance
@@ -51,7 +51,6 @@ jobs:
         id: terraform-compliance-friendly-features
         run: |
           terraform-compliance -p plan.out.json -f git:ssh://git@github.com/terraform-compliance/user-friendly-features.git
-
 
   tflint:
     name: TFLint
@@ -141,7 +140,7 @@ jobs:
           sarif_file: tfsec.sarif
 
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v1
+        uses: github/codeql-action/upload-sarif@v2
         with:
           # Path to SARIF file relative to the root of the repository
           sarif_file: tfsec.sarif
