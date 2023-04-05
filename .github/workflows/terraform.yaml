@@ -15,8 +15,13 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - id: set-matrix
-        run: echo "matrix=$(ls examples/ | jq -R -s -c 'split("\n")[:1][] | "./examples/" + .')" >> $GITHUB_OUTPUT
+        run: echo "matrix=$(ls examples/ | jq -R -s -c '[(split("\n") | del(.[] | select( . == "")))[] | "./examples/" + .]')" >> $GITHUB_OUTPUT
 
+  check-matrix:
+    runs-on: ubuntu-latest
+    needs: examples-matrix
+    steps:
+      - run: echo ${{ needs.examples-matrix.outputs.matrix }}
   terraform-compliance:
     name: Compliance
     needs: examples-matrix
