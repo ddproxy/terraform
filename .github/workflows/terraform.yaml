@@ -25,6 +25,9 @@ jobs:
       fail-fast: false
       matrix:
         directory: ${{ fromJson(needs.examples-matrix.outputs.matrix) }}
+    defaults:
+      run:
+        working-directory: examples/${{ matrix.directory }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -134,6 +137,29 @@ jobs:
       - name: tfsec
         uses: aquasecurity/tfsec-action@v1.0.0
 
+  validate:
+    runs-on: ubuntu-latest
+    name: Validate terraform configuration
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: terraform validate
+        uses: dflook/terraform-validate@v1
+        with:
+          path: my-terraform-config
+
+  fmt-check:
+    runs-on: ubuntu-latest
+    name: Check formatting of terraform files
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: terraform fmt
+        uses: dflook/terraform-fmt-check@v1
+        with:
+          path: my-terraform-config
   terraform:
     name: ${{ matrix.directory }} Terraform Validation
     runs-on: ${{ matrix.os }}
@@ -144,7 +170,7 @@ jobs:
         os: [ ubuntu-latest ]
     defaults:
       run:
-        working-directory: ${{ matrix.directory }}
+        working-directory: examples/${{ matrix.directory }}
 
     steps:
       - name: Checkout Repository
