@@ -25,6 +25,10 @@ jobs:
         working-directory: ${{ matrix.directory }}
 
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
       - name: Setup
         uses: './.github/actions/ci-setup'
 
@@ -53,6 +57,10 @@ jobs:
         directory: [ "./examples" ]
         os: [ ubuntu-latest ]
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
       - name: Setup
         uses: './.github/actions/ci-setup'
 
@@ -77,6 +85,10 @@ jobs:
         directory: [ "./examples" ]
         os: [ ubuntu-latest ]
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
       - name: Setup
         uses: './.github/actions/ci-setup'
 
@@ -101,6 +113,10 @@ jobs:
         directory: [ "./examples" ]
         os: [ ubuntu-latest ]
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
       - name: Setup
         uses: './.github/actions/ci-setup'
 
@@ -120,6 +136,10 @@ jobs:
         working-directory: ${{ matrix.directory }}
 
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
       - name: Setup
         uses: './.github/actions/ci-setup'
 

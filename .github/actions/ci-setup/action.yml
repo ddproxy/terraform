@@ -4,11 +4,6 @@ description: 'Sets up the environment for jobs during CI workflow'
 runs:
   using: composite
   steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v3
-      with:
-        fetch-depth: 1
-
     - name: Cache plugin dir
       uses: actions/cache@v3
       with:
