@@ -8,6 +8,47 @@ on:
   pull_request:
   workflow_dispatch:
 jobs:
+  examples-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v2
+      - id: set-matrix
+        run: echo "::set-output name=matrix::$(ls examples/ | jq -R -s -c 'split("\n")[:1]')"
+
+  terraform-compliance:
+    name: Terraform Compliance
+    needs: examples-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        directory: ${{ fromJson(needs.examples-matrix.outputs.matrix) }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+      - name: Setup
+        uses: './.github/actions/ci-setup'
+
+      - name: Run `terraform init`
+        id: init
+        run: terraform init
+        shell: bash
+
+      - uses: terraform-compliance/github_action@main
+      - name: terraform plan
+        id: plan
+        run: |
+          terraform plan -out=plan.out && terraform show -json plan.out > plan.out.json
+
+      - name: terraform-compliance
+        id: terraform-compliance-friendly-features
+        run: |
+          terraform-compliance -p plan.out.json -f git:ssh://git@github.com/terraform-compliance/user-friendly-features.git
+
   tflint:
     permissions:
       contents: read
@@ -54,7 +95,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        directory: [ "./examples" ]
         os: [ ubuntu-latest ]
     steps:
       - name: Checkout Repository
@@ -76,41 +116,12 @@ jobs:
         with:
           sarif_file: results.sarif
 
-  terraform-compliance:
-    name: ${{ matrix.directory }} Terraform Compliance
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        directory: [ "./examples" ]
-        os: [ ubuntu-latest ]
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 1
-      - name: Setup
-        uses: './.github/actions/ci-setup'
-
-      - uses: terraform-compliance/github_action@main
-      - name: terraform plan
-        id: plan
-        run: |
-          terraform plan -out=plan.out && terraform show -json plan.out > plan.out.json
-
-      - name: terraform-compliance
-        id: terraform-compliance-friendly-features
-        run: |
-          terraform-compliance -p $GITHUB_WORKSPACE/plan.out.json -f git:ssh://git@github.com/terraform-compliance/user-friendly-features.git
-
-
   tfsec:
-    name: ${{ matrix.directory }} TSec
+    name: TFSec
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        directory: [ "./examples" ]
         os: [ ubuntu-latest ]
     steps:
       - name: Checkout Repository
@@ -146,6 +157,11 @@ jobs:
       - name: Run `terraform fmt`
         id: fmt
         run: terraform fmt -diff -check -no-color -recursive
+
+      - name: Run `terraform init`
+        id: init
+        run: terraform init
+        shell: bash
 
       - name: Run `terraform validate`
         id: validate
